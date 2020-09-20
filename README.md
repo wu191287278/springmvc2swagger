@@ -134,3 +134,12 @@ Convert to SwaggerDoc
 ![image](./docs/4.jpg)
 
 
+
+## springboot
+
+You can generate the file to a static directory, and then launch the springboot service to access http://localhost:80
+
+![image](./docs/5.jpg)
+![image](./docs/6.jpg)
+![image](./docs/7.jpg)
+
