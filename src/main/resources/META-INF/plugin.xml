@@ -1,0 +1,18 @@
+<idea-plugin>
+    <id>com.github.wu191287278.springmvc2swagger</id>
+    <name>springmvc2swagger</name>
+    <vendor email="191287278@qq.com" url="https://github.com/wu191287278/springmvc2swagger">springmvc2swagger</vendor>
+
+    <description>Converts springmvc annotations and javadoc to swaggerdoc</description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+    </extensions>
+    <actions>
+        <action id="com.github.wu191287278.springmvc2swagger" class="SpringMvc2SwaggerAction" text="Generate Swaggerdoc"
+                description="Generate swagger doc">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

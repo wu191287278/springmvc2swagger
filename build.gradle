@@ -1,0 +1,54 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij' version '0.6.5'
+}
+
+group 'com.github.wu191287278'
+version '1.5.1'
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'com.github.javaparser', name: 'javaparser-symbol-solver-core', version: '3.7.0'
+    compile (group: 'io.swagger', name: 'swagger-models', version: '1.5.17')
+    {
+        exclude(group: 'org.slf4j',module: 'slf4j-api')
+        exclude(group: 'com.fasterxml.jackson.core',module: 'jackson-annotations')
+    }
+    compile (group: 'io.swagger', name: 'swagger-parser', version: '1.0.33')
+    {
+        exclude(group: 'org.slf4j',module: 'slf4j-api')
+        exclude(group: 'com.fasterxml.jackson.core',module: 'jackson-annotations')
+        exclude(group: 'com.fasterxml.jackson.core',module: 'jackson-databind')
+        exclude(group: 'com.fasterxml.jackson.core',module: 'jackson-core')
+    }
+    compile group: 'javax.validation', name: 'validation-api', version: '2.0.1.Final'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+intellij {
+    version = '2020.3'
+    plugins = ['com.intellij.java']
+}
+patchPluginXml {
+    version = project.version
+    sinceBuild = '202'
+    untilBuild = '211.*'
+    changeNotes """
+        this is change notes.
+        <a href="https://github.com/wu191287278/springmvc2swagger/wiki">how to use</a>
+        <a href="https://github.com/wu191287278/springmvc2swagger/change-log">changelog</a>
+     """
+}
+
+buildSearchableOptions {
+    enabled = false
+}
+
+test {
+    useJUnitPlatform()
+}
