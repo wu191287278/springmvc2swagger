@@ -37,11 +37,11 @@ intellij {
 patchPluginXml {
     version = project.version
     sinceBuild = '202'
-    untilBuild = '211.*'
+    untilBuild = '212.*'
     changeNotes """
         this is change notes.
-        <a href="https://github.com/wu191287278/springmvc2swagger/wiki">how to use</a>
-        <a href="https://github.com/wu191287278/springmvc2swagger/change-log">changelog</a>
+        <a href="https://github.com/wu191287278/springmvc2swagger">how to use</a>
+        <a href="https://github.com/wu191287278/springmvc2swagger">changelog</a>
      """
 }
 
