@@ -1,10 +1,5 @@
 package com.github.wu191287278.springmvc2swagger.visitor;
 
-import java.lang.reflect.Field;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -28,6 +23,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import com.github.wu191287278.springmvc2swagger.SwaggerDocs;
 
 /**
  * @author yu.wu
@@ -348,6 +351,21 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                 try {
                     ObjectProperty objectProperty = (ObjectProperty) property;
                     if (objectProperty.getProperties() != null && objectProperty.getProperties().size() > 0) {
+                        Map<String, Model> modelMap = new TreeMap<>();
+                        Model mode = modelMap.get(typeName);
+                        if (mode != null) {
+                            boolean isReplace = true;
+                            for (Map.Entry<String, Property> entry : objectProperty.getProperties().entrySet()) {
+                                if (StringUtils.isNotBlank(entry.getValue().getDescription())) {
+                                    isReplace = false;
+                                }
+                            }
+                            if (isReplace) {
+                                objectProperty = new ObjectProperty(mode.getProperties())
+                                        .description(mode.getDescription());
+                                property = objectProperty;
+                            }
+                        }
                         for (Map.Entry<String, Property> entry : objectProperty.getProperties().entrySet()) {
                             Property value = entry.getValue();
                             QueryParameter queryParameter = new QueryParameter()
@@ -362,6 +380,8 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                                 ArrayProperty arrayProperty = (ArrayProperty) value;
                                 queryParameter.items(arrayProperty.getItems());
                                 queryParameter.setUniqueItems(arrayProperty.getUniqueItems());
+                                queryParameter.description(arrayProperty.getDescription());
+                                queryParameter.allowEmptyValue(arrayProperty.getAllowEmptyValue());
                             }
                             request.getParameters().add(queryParameter);
                         }
@@ -380,6 +400,18 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                             param = new PathParameter()
                                     .property(paramProperty);
                             break;
+                        case "SignValidator":
+                            Model signModel = resolveSwaggerType.convertToModel(property);
+                            BodyParameter signBody = new BodyParameter().schema(new ModelImpl().type("object"));
+                            if (signModel != null) {
+                                signBody.schema(signModel);
+                            }
+                            param = signBody;
+                            request.getConsumes().add("application/json");
+                            break;
+                        case "Principal":
+                            param = null;
+                            break;
                         case "RequestBody":
                             Model model = resolveSwaggerType.convertToModel(property);
                             BodyParameter bodyParameter = new BodyParameter().schema(new ModelImpl().type("object"));
@@ -389,7 +421,6 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                             param = bodyParameter;
                             request.getConsumes().add("application/json");
                             break;
-
                         case "RequestPart":
                             param = new FormParameter()
                                     .property(paramProperty);
@@ -408,6 +439,21 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                                 if (property instanceof ObjectProperty) {
                                     ObjectProperty objectProperty = (ObjectProperty) property;
                                     if (objectProperty.getProperties() != null && objectProperty.getProperties().size() > 0) {
+                                        Map<String, Model> modelMap = new HashMap<>();
+                                        Model mode = modelMap.get(typeName);
+                                        if (mode != null) {
+                                            boolean isReplace = true;
+                                            for (Map.Entry<String, Property> entry : objectProperty.getProperties().entrySet()) {
+                                                if (StringUtils.isNotBlank(entry.getValue().getDescription())) {
+                                                    isReplace = false;
+                                                }
+                                            }
+                                            if (isReplace) {
+                                                objectProperty = new ObjectProperty(mode.getProperties())
+                                                        .description(mode.getDescription());
+                                                property = objectProperty;
+                                            }
+                                        }
                                         for (Map.Entry<String, Property> entry : objectProperty.getProperties().entrySet()) {
                                             Property value = entry.getValue();
                                             QueryParameter queryParameter = new QueryParameter()
@@ -422,6 +468,8 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                                                 ArrayProperty arrayProperty = (ArrayProperty) value;
                                                 queryParameter.items(arrayProperty.getItems());
                                                 queryParameter.setUniqueItems(arrayProperty.getUniqueItems());
+                                                queryParameter.description(arrayProperty.getDescription());
+                                                queryParameter.allowEmptyValue(arrayProperty.getAllowEmptyValue());
                                             }
                                             request.getParameters().add(queryParameter);
                                         }
@@ -434,6 +482,9 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                             }
                     }
 
+                    if (param == null) {
+                        break;
+                    }
 
                     if (param instanceof PathParameter || param instanceof QueryParameter || param instanceof HeaderParameter || param instanceof CookieParameter) {
                         if (annotation.isSingleMemberAnnotationExpr()) {
@@ -444,6 +495,11 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
                                 String value = expression.asStringLiteralExpr().asString();
                                 if (StringUtils.isNotBlank(value)) {
                                     variableName = value;
+                                }
+                                if (expression.isFieldAccessExpr() && "RequestHeader".equalsIgnoreCase(annotation.getNameAsString())) {
+                                    FieldAccessExpr fieldAccessExpr = expression.asFieldAccessExpr();
+                                    SimpleName name = fieldAccessExpr.getName();
+                                    variableName = name.asString().toLowerCase().replace("_", "-");
                                 }
                             }
                         }
@@ -550,9 +606,29 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
         }
 
         Property property = resolveSwaggerType.resolve(type);
+        String response = System.getProperty("response", "");
+        if (StringUtils.isNotBlank(response)) {
+            ObjectProperty objectProperty = new ObjectProperty();
+            try {
+                Map<String, String> map = objectMapper.readValue(response, Map.class);
+                for (Map.Entry<String, String> entry : map.entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    Property resolveBaseType = ResolveSwaggerType.resolveBaseType(value);
+                    if (resolveBaseType != null) {
+                        objectProperty.property(key, resolveBaseType);
+                    } else {
+                        objectProperty.property(key, property);
+                    }
+                }
+                property = objectProperty;
+            } catch (IOException e) {
+                log.error(e.getMessage(), e);
+            }
+        }
         if (property.getName() != null) {
             request.setReturnType(new RefProperty("#/definitions/" + property.getName()));
-            if(request.getProduces().isEmpty()){
+            if (request.getProduces().isEmpty()) {
                 request.getProduces().add("application/json");
             }
         } else {
@@ -590,5 +666,9 @@ public class RestVisitorAdapter extends VoidVisitorAdapter<Swagger> {
     public RestVisitorAdapter setBasePackage(String basePackage) {
         this.basePackage = basePackage;
         return this;
+    }
+
+    public void dependencyVisit(BiConsumer<String, String> consumer){
+        resolveSwaggerType.dependencyGraph.visit(consumer);
     }
 }

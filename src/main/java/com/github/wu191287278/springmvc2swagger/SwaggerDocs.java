@@ -8,6 +8,8 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -87,7 +89,7 @@ public class SwaggerDocs {
                 JsonNode jsonNode = objectMapper.readValue(swaggerFile, JsonNode.class);
                 boolean swagger = jsonNode.has("swagger");
                 if (swagger) {
-                    ImmutableMap<String, String> of = ImmutableMap.of("name", swaggerFile.getName().replace(".json",""),
+                    ImmutableMap<String, String> of = ImmutableMap.of("name", swaggerFile.getName().replace(".json", ""),
                             "url", "./" + swaggerFile.getAbsolutePath()
                                     .replace(outDirectoryFile.getAbsolutePath(), "")
                     );
@@ -97,7 +99,7 @@ public class SwaggerDocs {
 
             }
         }
-        writeUI(outDirectory + "/swagger-ui.html", urls);
+        writeUI(outDirectory, urls);
         return paths;
     }
 
@@ -105,11 +107,26 @@ public class SwaggerDocs {
         File file = new File(path);
         try {
             try (InputStream in = SwaggerDocs.class.getClassLoader().getResourceAsStream("static/swagger-ui.html");
-                 BufferedWriter out = new BufferedWriter(new FileWriter(file))) {
+                 BufferedWriter out = new BufferedWriter(new FileWriter(file.getAbsolutePath() + "/swagger-ui.html"))) {
                 if (in == null) return;
                 String html = IOUtils.toString(in, StandardCharsets.UTF_8);
                 html = String.format(html, new ObjectMapper().writeValueAsString(urls));
                 IOUtils.write(html, out);
+            }
+
+            File dist = new File(path, "dist.zip");
+            try (InputStream in = SwaggerDocs.class.getClassLoader().getResourceAsStream("static/dist.zip");
+                 OutputStream out = new BufferedOutputStream(new FileOutputStream(dist))) {
+                if (in != null) {
+                    IOUtils.copy(in, out);
+                }
+            } catch (IOException e) {
+            }
+            try {
+                File distDir = new File(path, "dist");
+                distDir.mkdirs();
+                unzip(dist, distDir);
+            } catch (Exception e) {
             }
         } catch (IOException ignore) {
 
@@ -265,6 +282,38 @@ public class SwaggerDocs {
             }
         } else {
             files.add(sourceDirectoryFile);
+        }
+    }
+
+    public static void unzip(File zipFile, File outpath) {
+        long startTime = System.currentTimeMillis();
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));) {
+
+            ZipEntry entry = zis.getNextEntry();
+            FileOutputStream fos = null;
+            while (entry != null) {
+                File file = new File(outpath, entry.getName());
+                System.out.println("正在解压缩: " + entry.getName());
+                if (entry.isDirectory()) {
+                    file.mkdirs();
+                } else {
+                    File parent = file.getParentFile();
+                    if (!parent.exists()) {
+                        parent.mkdirs();
+                    }
+                    //输出文件
+                    fos = new FileOutputStream(file);
+                    int len = 0;
+                    byte[] butter = new byte[1024];
+                    while ((len = zis.read(butter)) > 0) {
+                        fos.write(butter, 0, len);
+                    }
+                }
+                entry = zis.getNextEntry();
+            }
+            fos.close();
+
+        } catch (Exception e) {
         }
     }
 
