@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.github.wu191287278'
-version '1.5.2'
+version '2.1.0'
 sourceCompatibility = 1.8
 
 repositories {
@@ -37,7 +37,7 @@ intellij {
 patchPluginXml {
     version = project.version
     sinceBuild = '202'
-    untilBuild = '232.*'
+    untilBuild = '299.*'
     changeNotes """
         this is change notes.
         <a href="https://github.com/wu191287278/springmvc2swagger">how to use</a>
